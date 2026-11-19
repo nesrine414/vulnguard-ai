@@ -191,7 +191,7 @@ class AnalysisService:
                     "cve_id": cve_id,
                     "status": "EXPLANATION_UNAVAILABLE",
                     "reason": str(llm_exc),
-                    "text": (
+                    "explanation": (
                         f"AI explanation for {cve_id} could not be generated "
                         f"({llm_exc}). "
                         "The vulnerability data is still available above."

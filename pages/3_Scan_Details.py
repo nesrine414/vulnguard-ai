@@ -248,9 +248,9 @@ with analysis_tab:
                             for error in errors:
                                 st.write(f"- {error}")
                             with st.expander("View untrusted AI output"):
-                                st.write(explanation_result["explanation"])
+                                st.write(explanation_result.get("explanation", "⚠️ Explanation unavailable."))
                         else:
-                            st.write(explanation_result["explanation"])
+                            st.write(explanation_result.get("explanation", "⚠️ Explanation unavailable."))
                             st.caption(
                                 "AI-generated text can still be inaccurate. "
                                 "The deterministic findings remain the source of truth."
