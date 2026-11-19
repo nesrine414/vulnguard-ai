@@ -547,18 +547,31 @@ with analysis_tab:
                                 )
 
                             if test_plan.get("final_report"):
-                                with st.expander("Final workflow report"):
-                                    st.json(test_plan["final_report"])
-                                    report_json_str = json.dumps(
-                                        test_plan["final_report"],
-                                        indent=2,
-                                        ensure_ascii=False,
+                                with st.expander("Rapport d'audit final"):
+                                    from src.utils.french_report import build_french_security_report
+                                    
+                                    # Génération du rapport complet en français
+                                    rapport_fr = build_french_security_report(
+                                        scan_id=selected_scan_id,
+                                        project_name=event.get("project_name", "N/A"),
+                                        cve_id=cve_id,
+                                        final_report=test_plan["final_report"],
                                     )
+                                    
+                                    # Aperçu direct dans l'interface
+                                    st.text_area(
+                                        "Aperçu du rapport",
+                                        rapport_fr,
+                                        height=260,
+                                        disabled=True,
+                                    )
+                                    
+                                    # Bouton de téléchargement du rapport en français
                                     st.download_button(
-                                        label="📥 Download final report (JSON)",
-                                        data=report_json_str,
-                                        file_name=f"vulnguard_report_{selected_scan_id[:8]}_{cve_id}.json",
-                                        mime="application/json",
+                                        label="📥 Télécharger le rapport d'audit (Français)",
+                                        data=rapport_fr,
+                                        file_name=f"rapport_vulnguard_{selected_scan_id[:8]}_{cve_id}.txt",
+                                        mime="text/plain; charset=utf-8",
                                         key=f"download_report_{selected_scan_id}_{cve_id}",
                                         width="stretch",
                                     )
