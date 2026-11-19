@@ -10,7 +10,8 @@ from src.database.queries import (
 )
 from src.database.db import get_scan_test_plan, save_scan_test_plan
 from src.utils import ui
-
+from dotenv import load_dotenv
+load_dotenv()
 importlib.reload(ui)
 importlib.reload(llm_explanation_module)
 LLMExplanationAgent = llm_explanation_module.LLMExplanationAgent
@@ -209,13 +210,17 @@ with analysis_tab:
                         key=f"explain_{selected_scan_id}_{cve_id}",
                     ):
                         try:
-                            with st.spinner("Generating explanation..."):
-                                result = LLMExplanationAgent().explain(finding)
+                            with st.spinner("Generating explanation with AI (this can take ~30-60s on CPU)..."):
+                                from src.agents.llm.ollama_provider import OllamaProvider
+                                # On donne un timeout de 180s pour l'interaction utilisateur
+                                dedicated_provider = OllamaProvider(timeout=180)
+                                agent = LLMExplanationAgent(provider=dedicated_provider)
+                                result = agent.explain(finding)
 
                             st.session_state[explanation_key] = result
+                            st.rerun()
                         except Exception as error:
                             st.error(f"Could not generate the explanation: {error}")
-
                     explanation_result = st.session_state.get(
                         explanation_key,
                         stored_explanations.get(cve_id, {}),
