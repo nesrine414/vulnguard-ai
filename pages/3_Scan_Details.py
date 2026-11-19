@@ -575,6 +575,23 @@ with analysis_tab:
                                         key=f"download_report_{selected_scan_id}_{cve_id}",
                                         width="stretch",
                                     )
+                                                                        # Bouton d'archivage vers Amazon S3
+                                    if st.button(
+                                        "☁️ Archiver ce rapport sur Amazon S3",
+                                        key=f"upload_s3_{selected_scan_id}_{cve_id}",
+                                        width="stretch",
+                                    ):
+                                        with st.spinner("Téléversement sécurisé vers S3..."):
+                                            from aws.s3.upload_reports import upload_report_to_s3
+                                            res_s3 = upload_report_to_s3(
+                                                scan_id=selected_scan_id,
+                                                cve_id=cve_id,
+                                                report_text=rapport_fr,
+                                            )
+                                            if res_s3.get("success"):
+                                                st.success(f"✅ Archivé sur S3 : `{res_s3['s3_uri']}`")
+                                            else:
+                                                st.error(f"Erreur S3 : {res_s3.get('error')}")
         else:
             st.success("No affected vulnerabilities were confirmed for this scan.")
 
