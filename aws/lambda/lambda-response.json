@@ -1,0 +1,1 @@
+{"statusCode": 200, "body": {"message": "Scan analys\u00e9 et persist\u00e9 avec succ\u00e8s par AWS Lambda", "scan_id": "aws-lambda-test-001", "cve_detected": ["CVE-2023-32681", "CVE-2024-35195"], "risk_score": 61.2, "risk_level": "MEDIUM"}}
