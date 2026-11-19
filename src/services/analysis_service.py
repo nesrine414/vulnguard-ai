@@ -161,17 +161,53 @@ class AnalysisService:
 
             llm_input["risk"] = risk
 
-            workflow_state = run_security_workflow(
-                {
-                    "scan_id": result.scan_id,
-                    "finding": llm_input,
-                },
-                report_agent=report_agent,
-            )
+            # --- LLM is non-fatal: a timeout or connection error must never
+            # fail the whole scan.  We catch all exceptions here, store a
+            # graceful fallback explanation, and continue processing the
+            # remaining vulnerabilities so the scan reaches ANALYZED status.
+            try:
+                workflow_state = run_security_workflow(
+                    {
+                        "scan_id": result.scan_id,
+                        "finding": llm_input,
+                    },
+                    report_agent=report_agent,
+                )
+                llm_explanations.append(workflow_state["explanation"])
+                security_test_plans.append(workflow_state["test_plan"])
+                final_reports.append(workflow_state["final_report"])
 
-            llm_explanations.append(workflow_state["explanation"])
-            security_test_plans.append(workflow_state["test_plan"])
-            final_reports.append(workflow_state["final_report"])
+            except Exception as llm_exc:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "LLM workflow failed for %s (%s): %s — using fallback.",
+                    vulnerability.get("cve_id"),
+                    result.scan_id,
+                    llm_exc,
+                )
+                # Fallback explanation so the scan is never blocked.
+                cve_id = vulnerability.get("cve_id", "UNKNOWN")
+                llm_explanations.append({
+                    "cve_id": cve_id,
+                    "status": "EXPLANATION_UNAVAILABLE",
+                    "reason": str(llm_exc),
+                    "text": (
+                        f"AI explanation for {cve_id} could not be generated "
+                        f"({llm_exc}). "
+                        "The vulnerability data is still available above."
+                    ),
+                    "warnings": [],
+                    "errors": [str(llm_exc)],
+                })
+                # Still generate the deterministic test plan.
+                from src.agents.security_test_generator import SecurityTestGenerator
+                fallback_plan = SecurityTestGenerator().generate(llm_input)
+                security_test_plans.append(fallback_plan)
+                final_reports.append({
+                    "cve_id": cve_id,
+                    "summary": "Analysis completed without LLM explanation.",
+                    "test_plan_ref": fallback_plan.get("plan_id"),
+                })
 
         return AnalysisResult(
             scan_id=result.scan_id,
