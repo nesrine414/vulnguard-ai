@@ -301,6 +301,11 @@ If no installed-version check was performed, say so.
 Use only the recommendations supplied in the source data.
 Do not invent fixed versions or claim that a remediation is available
 when the data does not establish this.
+When reporting a fixed version for a package, use exactly this phrasing:
+"For <package_name>, OSV supplies <version> as a fixed version."
+Do not combine the installed version and the fixed version in the same
+sentence using transition words such as "upgrade from X to Y" — write
+them as separate sentences.
 
 6. Data Limitations
 Mention relevant missing or incomplete information.

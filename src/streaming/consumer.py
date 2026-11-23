@@ -164,12 +164,21 @@ def start_consumer():
     """Start the Kafka consumer and process scan requests."""
     initialize_database()
 
+    ollama = OllamaProvider()
+    if ollama.is_available():
+        print("Ollama is available — LLM explanations enabled.")
+        llm_explainer = LLMExplanationAgent(provider=ollama)
+    else:
+        print(
+            "WARNING: Ollama is unreachable. "
+            "Scans will be analyzed without LLM explanations."
+        )
+        llm_explainer = None
+
     analysis_service = AnalysisService(
         enrichment_adapter=EnrichmentAdapter.from_intelligence_engine(),
         risk_scorer=RiskScoringAdapter(),
-        llm_explainer=LLMExplanationAgent(
-            provider=OllamaProvider()
-        ),
+        llm_explainer=llm_explainer,
         test_generator=SecurityTestGenerator(),
     )
 

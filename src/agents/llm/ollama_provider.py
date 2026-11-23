@@ -1,4 +1,5 @@
 
+import os
 import requests
 
 from src.agents.llm.base import LLMProvider
@@ -11,11 +12,22 @@ class OllamaProvider(LLMProvider):
         self,
         model: str = "llama3.2:3b",
         base_url: str = "http://localhost:11434",
-        timeout: int = 600,
+        timeout: int | None = None,
     ):
         self.model = model
         self.base_url = base_url.rstrip("/")
-        self.timeout = timeout
+        if timeout is None:
+            self.timeout = int(os.getenv("OLLAMA_TIMEOUT", "30"))
+        else:
+            self.timeout = timeout
+
+    def is_available(self) -> bool:
+        """Fast check to see if Ollama is running and responsive."""
+        try:
+            resp = requests.get(f"{self.base_url}/api/tags", timeout=1.5)
+            return resp.status_code == 200
+        except Exception:
+            return False
 
     def generate(self, prompt: str) -> str:
         if not isinstance(prompt, str) or not prompt.strip():
