@@ -1,0 +1,163 @@
+{
+    "Comment": "VulnGuard AI - Serverless scan orchestration with human approval",
+    "StartAt": "ReceiveScanRequest",
+    "States": {
+        "ReceiveScanRequest": {
+            "Type": "Pass",
+            "Comment": "Reception de la demande de scan",
+            "Next": "InvokeVulnGuardScanProcessor"
+        },
+        "InvokeVulnGuardScanProcessor": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName": "VulnGuardScanProcessor",
+                "Payload.$": "$"
+            },
+            "ResultSelector": {
+                "statusCode.$": "$.Payload.statusCode",
+                "body.$": "$.Payload.body"
+            },
+            "ResultPath": "$.analysisResult",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException",
+                        "Lambda.TooManyRequestsException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Next": "WaitForHumanApproval"
+        },
+        "WaitForHumanApproval": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+            "Parameters": {
+                "FunctionName": "VulnGuardApprovalNotifier",
+                "Payload": {
+                    "taskToken.$": "$$.Task.Token",
+                    "scan_id.$": "$.scan_id",
+                    "project_name.$": "$.project_name",
+                    "analysisResult.$": "$.analysisResult"
+                }
+            },
+            "TimeoutSeconds": 86400,
+            "ResultPath": "$.approvalResult",
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.Timeout"
+                    ],
+                    "ResultPath": "$.approvalError",
+                    "Next": "MarkApprovalTimeout"
+                }
+            ],
+            "Next": "CheckApprovalDecision"
+        },
+        "CheckApprovalDecision": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.approvalResult.approval_decision",
+                    "StringEquals": "APPROVED",
+                    "Next": "ExecuteIsolatedVerification"
+                },
+                {
+                    "Variable": "$.approvalResult.approval_decision",
+                    "StringEquals": "REJECTED",
+                    "Next": "MarkScanRejected"
+                }
+            ],
+            "Default": "MarkApprovalTimeout"
+        },
+        "ExecuteIsolatedVerification": {
+            "Type": "Pass",
+            "Comment": "Emplacement reserve pour une future verification isolee Docker ou Fargate. Aucun conteneur n'est lance dans cette version.",
+            "Next": "MarkScanApproved"
+        },
+        "MarkScanApproved": {
+            "Type": "Pass",
+            "Parameters": {
+                "status": "APPROVED",
+                "scan_id.$": "$.scan_id",
+                "analysisResult.$": "$.analysisResult"
+            },
+            "ResultPath": "$.finalResult",
+            "Next": "ArchiveMetadataToDynamoDB"
+        },
+        "MarkScanRejected": {
+            "Type": "Pass",
+            "Parameters": {
+                "status": "REJECTED",
+                "scan_id.$": "$.scan_id",
+                "analysisResult.$": "$.analysisResult"
+            },
+            "ResultPath": "$.finalResult",
+            "Next": "ArchiveMetadataToDynamoDB"
+        },
+        "MarkApprovalTimeout": {
+            "Type": "Pass",
+            "Parameters": {
+                "status": "APPROVAL_TIMEOUT",
+                "scan_id.$": "$.scan_id",
+                "analysisResult.$": "$.analysisResult"
+            },
+            "ResultPath": "$.finalResult",
+            "Next": "ArchiveMetadataToDynamoDB"
+        },
+        "ArchiveMetadataToDynamoDB": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::dynamodb:updateItem",
+            "Parameters": {
+                "TableName": "VulnGuardScans",
+                "Key": {
+                    "scan_id": {
+                        "S.$": "$.scan_id"
+                    }
+                },
+                "UpdateExpression": "SET #status = :status, updated_at = :updated_at",
+                "ExpressionAttributeNames": {
+                    "#status": "status"
+                },
+                "ExpressionAttributeValues": {
+                    ":status": {
+                        "S.$": "$.finalResult.status"
+                    },
+                    ":updated_at": {
+                        "S.$": "$$.State.EnteredTime"
+                    }
+                }
+            },
+            "ResultPath": "$.dynamoResult",
+            "Next": "PrepareReport"
+        },
+        "PrepareReport": {
+            "Type": "Pass",
+            "Parameters": {
+                "scan_id.$": "$.scan_id",
+                "project_name.$": "$.project_name",
+                "status.$": "$.finalResult.status",
+                "analysisResult.$": "$.analysisResult",
+                "approvalResult.$": "$.approvalResult"
+            },
+            "Next": "ArchiveReportToS3"
+        },
+        "ArchiveReportToS3": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::aws-sdk:s3:putObject",
+            "Parameters": {
+                "Bucket": "vulnguard-ai-2026",
+                "Key.$": "States.Format('reports/{}_workflow_report.json', $.scan_id)",
+                "ContentType": "application/json",
+                "Body.$": "States.JsonToString($)"
+            },
+            "ResultPath": "$.s3Result",
+            "End": true
+        }
+    }
+}
