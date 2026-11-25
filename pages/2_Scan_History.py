@@ -177,3 +177,47 @@ else:
     st.info(
         "No scans match the selected filters."
     )
+
+
+# ---------------------------------------------
+# 7. HISTORIQUE CLOUD — AMAZON DYNAMODB
+# ---------------------------------------------
+
+st.divider()
+st.subheader("☁️ Historique Cloud — Amazon DynamoDB")
+st.caption("Consultez les audits synchronisés et archivés dans la base NoSQL Cloud d'Amazon.")
+
+if st.button("🔄 Charger les scans depuis Amazon DynamoDB", key="btn_refresh_dynamodb"):
+    with st.spinner("Interrogation de la table AWS 'VulnGuardScans'..."):
+        try:
+            import boto3
+            session = boto3.Session(profile_name="learnerlab", region_name="us-east-1")
+            ddb = session.resource("dynamodb")
+            table = ddb.Table("VulnGuardScans")
+            response = table.scan(Limit=20)
+            items = response.get("Items", [])
+
+            if items:
+                cloud_rows = []
+                for item in items:
+                    cves = item.get("cve_ids", [])
+                    cve_text = ", ".join(cves) if isinstance(cves, list) else str(cves)
+                    cloud_rows.append({
+                        "Scan ID": item.get("scan_id"),
+                        "Projet": item.get("project_name", "N/A"),
+                        "Statut": item.get("status"),
+                        "Score": f"{item.get('risk_score', 'N/A')}/100",
+                        "Niveau": item.get("risk_level", "N/A"),
+                        "CVEs Détectées": cve_text or "0",
+                        "Date Sync": item.get("created_at", "")[:19].replace("T", " "),
+                        "Rapport S3": item.get("report_s3_uri", "N/A"),
+                    })
+                st.dataframe(cloud_rows, width="stretch", hide_index=True)
+                st.success(f"✅ {len(cloud_rows)} scan(s) récupéré(s) en direct depuis DynamoDB (Table: VulnGuardScans).")
+            else:
+                st.info("Aucun scan archivé dans la table DynamoDB pour le moment.")
+        except Exception as e:
+            st.warning(
+                "⚠️ Impossible de joindre AWS DynamoDB en direct. "
+                "Vérifiez que votre session Learner Lab est active."
+            )

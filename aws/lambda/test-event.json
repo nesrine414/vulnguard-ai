@@ -1,0 +1,8 @@
+{
+  "scan_id": "aws-lambda-test-001",
+  "project_name": "vulnguard-cloud-test",
+  "dependencies": [
+    {"name": "requests", "version": "2.31.0"},
+    {"name": "urllib3", "version": "2.2.1"}
+  ]
+}

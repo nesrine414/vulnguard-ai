@@ -103,10 +103,11 @@ class LLMExplanationAgent:
         legacy_cvss_source = risk.get("cvss_source")
         cvss_source = risk.get("cvss_provider") or risk.get("cvss_origin")
         cvss_standard = risk.get("cvss_standard") or risk.get("cvss_type")
-        if not cvss_standard and isinstance(legacy_cvss_source, str):
+        if not cvss_source and isinstance(legacy_cvss_source, str):
             if re.fullmatch(r"CVSS_V[34]", legacy_cvss_source, re.IGNORECASE):
-                cvss_standard = legacy_cvss_source
-            elif not cvss_source:
+                if not cvss_standard:
+                    cvss_standard = legacy_cvss_source
+            else:
                 cvss_source = legacy_cvss_source
 
         advisories = [
@@ -243,7 +244,7 @@ STRICT SECURITY RULES:
 - Report supplied OSV identifiers.
 - Report the exact package name and ecosystem.
 - Report the exact CVSS score and severity.
-- Report the supplied CVSS version and source with its score. If either is
+- Report the supplied CVSS version and source with its score. If cvss_source is provided in the data, explicitly state "The CVSS score is from <cvss_source>". If either is
   unavailable, say so; do not substitute a value from another advisory.
 - Report the exact EPSS score and percentile.
 - Explain KEV status using is_kev:
@@ -450,6 +451,7 @@ Return a readable explanation, not JSON.
                 match.group(1).lower()
                 for sentence in cvss_sentences
                 for match in source_claim_pattern.finditer(sentence)
+                if match.group(1).lower() not in {"not", "null", "none", "unknown", "unavailable", "specified", "provided"}
             }
             wrong_source_claim = any(
                 source != expected_source for source in declared_sources
