@@ -213,7 +213,7 @@ with analysis_tab:
                             with st.spinner("Génération de l'explication de sécurité par l'IA..."):
                                 import os
                                 # Si un token Cloud Groq existe, on utilise l'IA Cloud, sinon Ollama
-                                if os.getenv("GROQ_API_TOKEN"):
+                                if os.getenv("GROQ_API_TOKEN") or os.getenv("GROQ_API_KEY"):
                                     from src.agents.llm.huggingface_provider import CloudLLMProvider
                                     provider = CloudLLMProvider()
                                 else:

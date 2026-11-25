@@ -13,7 +13,7 @@ class CloudLLMProvider(LLMProvider):
         # Modèle de chat ultra-fiable disponible sur ton compte
         model: str = "qwen/qwen3.8-27b",
     ):
-        self.api_token = api_token or os.getenv("GROQ_API_TOKEN")
+        self.api_token = api_token or os.getenv("GROQ_API_TOKEN") or os.getenv("GROQ_API_KEY")
         self.model = model
 
     def is_available(self) -> bool:
