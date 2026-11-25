@@ -7,7 +7,7 @@ packaging
 jsonschema>=4.21,<5
 requests
 pandas
-scikit-learn
+scikit-learn==1.9.1
 joblib
 cvss>=3.6,<4.0
 langgraph>=1.0,<2.0
